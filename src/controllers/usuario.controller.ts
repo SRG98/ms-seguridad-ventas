@@ -196,8 +196,7 @@ export class UsuarioController {
 
   @post('/verificar-2fa')
   @response(200, {
-    descrpiption: "Validar un codigo de 2fa",
-    content: {'application/json': {schema: getModelSchemaRef(FactorDeAutenticacionPorCodigo)}}
+    descrpiption: "Validar un codigo de 2fa"
   })
   async verificarCodigo2fa(
     @requestBody(
@@ -211,9 +210,16 @@ export class UsuarioController {
     )
     credenciales: FactorDeAutenticacionPorCodigo
   ): Promise<object> {
-    const login = await this.servicioSeguridad.validarCodigo2fa(credenciales);
-    if (login) {
-      return login;
+    const usuario = await this.servicioSeguridad.validarCodigo2fa(credenciales);
+    if (usuario) {
+      const token = this.servicioSeguridad.crerToken(usuario);
+      if (usuario) {
+        usuario.clave = "";
+        return {
+          user: usuario,
+          token: token
+        };
+      }
     }
     return new HttpErrors[401]("Codigo de 2fa invalido para el usuario definido.")
   }
