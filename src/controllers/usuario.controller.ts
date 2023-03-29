@@ -83,6 +83,7 @@ export class UsuarioController {
     return this.usuarioRepository.find(filter);
   }
 
+
   @patch('/usuario')
   @response(200, {
     description: 'Usuario PATCH success count',
@@ -160,7 +161,7 @@ export class UsuarioController {
    * Metodos personalizados para la API
    */
 
-  @post('/identificadrUsuario')
+  @post('/identificador-Usuario')
   @response(200, {
     descrpiption: "Identificar un usuario por correo y clave",
     content: {'application/json': {schema: getModelSchemaRef(Usuario)}}
@@ -179,20 +180,20 @@ export class UsuarioController {
   ): Promise<object> {
     const usuario = await this.servicioSeguridad.identificarUsuario(credenciales);
     if (usuario) {
-      const codigo2fa = this.servicioSeguridad.creatTextoAleatorio(5);
-      const login: Login = new Login();
+      let codigo2fa = this.servicioSeguridad.creatTextoAleatorio(5);
+      let login: Login = new Login();
       login.usuarioId = usuario._id!;
       login.codigo2fa = codigo2fa;
       login.estadoCodigo2fa = false;
       login.token = "";
       login.estadoToken = false;
       this.repositorioLogin.create(login);
+      usuario.clave = "";
       // notificar al usuario via correo o sms
       return usuario;
     }
     return new HttpErrors[401]("Credenciales incorrectas.")
   }
-
 
   @post('/verificar-2fa')
   @response(200, {
@@ -210,11 +211,22 @@ export class UsuarioController {
     )
     credenciales: FactorDeAutenticacionPorCodigo
   ): Promise<object> {
-    const usuario = await this.servicioSeguridad.validarCodigo2fa(credenciales);
+    let usuario = await this.servicioSeguridad.validarCodigo2fa(credenciales);
     if (usuario) {
-      const token = this.servicioSeguridad.crerToken(usuario);
+      let token = this.servicioSeguridad.crerToken(usuario);
       if (usuario) {
         usuario.clave = "";
+        try {
+          this.usuarioRepository.logins(usuario._id).patch({
+            estadoCodigo2fa: true,
+            token: token
+          },
+            {
+              estadoCodigo2fa: false
+            });
+        } catch {
+          console.log("No se a almacenado el cambio de estado del token en la base de datos.")
+        }
         return {
           user: usuario,
           token: token
